@@ -12,6 +12,7 @@ use App\Models\Team;
 use App\Models\Ticket;
 use App\Models\TicketHistory;
 use App\Services\TicketAccessScope;
+use App\Services\TicketHistoryPresenter;
 use App\Services\TicketWorkflow;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
@@ -30,7 +31,7 @@ class TicketController extends Controller
             'team_id' => ['nullable', 'integer'], 'sla' => ['nullable', Rule::in(['overdue', 'paused'])],
             'per_page' => ['nullable', 'integer', 'between:1,100'],
         ]);
-        $query = $scope->query($request->user())->with(['category', 'campus', 'building', 'location', 'team', 'assignedTechnician', 'requester'])
+        $query = $scope->query($request->user())->with(['category', 'campus', 'building', 'location', 'team', 'assignedTechnician', 'requester', 'slaPolicy.calendar'])
             ->withCount(['slaPauses as active_sla_pause_count' => fn ($pause) => $pause->whereNull('ended_at')]);
         $this->applyFilters($query, $filters);
         if (($filters['sla'] ?? null) === 'overdue') {
@@ -119,15 +120,17 @@ class TicketController extends Controller
         ]]);
     }
 
-    public function history(Ticket $ticket): JsonResponse
+    public function history(Request $request, Ticket $ticket, TicketHistoryPresenter $presenter): JsonResponse
     {
         $this->authorize('view', $ticket);
-        $items = $ticket->histories()->with('actor:id,name')->paginate(30);
-        $items->getCollection()->transform(fn (TicketHistory $event): array => [
-            'id' => $event->id, 'event' => $event->event_type?->value, 'actor' => $event->actor?->only(['id', 'name']),
-            'old_values' => $event->old_values, 'new_values' => $event->new_values, 'metadata' => $event->metadata,
-            'occurred_at' => $event->created_at?->toISOString(),
-        ]);
+        $ticket->loadMissing('slaPolicy.calendar');
+        $history = $ticket->histories()->with('actor:id,name');
+        if (! $request->user()->can('viewInternal', $ticket)) {
+            $history->where(fn ($query) => $query->where('event_type', '!=', TicketAuditEvent::CommentAdded->value)
+                ->orWhereNull('new_values->internal')->orWhere('new_values->internal', false));
+        }
+        $items = $history->paginate(30);
+        $items->setCollection($presenter->present($items->getCollection(), $ticket));
 
         return response()->json(['data' => $items->items(), 'meta' => ['current_page' => $items->currentPage(), 'last_page' => $items->lastPage(), 'per_page' => $items->perPage(), 'total' => $items->total()]]);
     }

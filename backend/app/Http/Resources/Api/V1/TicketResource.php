@@ -30,7 +30,10 @@ class TicketResource extends JsonResource
                 'due_at' => $this->due_at?->toISOString(),
                 'breached_at' => $this->sla_breached_at?->toISOString(),
                 'paused' => (bool) ($this->active_sla_pause_count ?? $this->slaPauses()->whereNull('ended_at')->exists()),
+                'presentation' => app(\App\Services\TicketSlaPresenter::class)->present($this->resource),
             ],
+            'resolved_at' => $this->resolved_at?->toISOString(),
+            'closed_at' => $this->closed_at?->toISOString(),
             'created_at' => $this->created_at?->toISOString(),
             'updated_at' => $this->updated_at?->toISOString(),
         ];

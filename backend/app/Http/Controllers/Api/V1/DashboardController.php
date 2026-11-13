@@ -30,7 +30,7 @@ class DashboardController extends Controller
             'near_due' => $slaMetrics->nearDueCount($query, $clock),
             'overdue' => (clone $query)->whereNotNull('due_at')->where('due_at', '<', now())->whereIn('status', $active)->where('status', '!=', 'awaiting_requester')->whereDoesntHave('slaPauses', fn ($pause) => $pause->whereNull('ended_at'))->count(),
         ];
-        $recent = (clone $query)->with(['category', 'campus', 'building', 'location', 'team', 'assignedTechnician', 'requester'])
+        $recent = (clone $query)->with(['category', 'campus', 'building', 'location', 'team', 'assignedTechnician', 'requester', 'slaPolicy.calendar'])
             ->withCount(['slaPauses as active_sla_pause_count' => fn ($pause) => $pause->whereNull('ended_at')])->latest()->limit(8)->get();
 
         return response()->json(['data' => ['stats' => $stats, 'recent_tickets' => TicketResource::collection($recent)]]);

@@ -16,4 +16,6 @@ test('shows localized labels for API ticket status and priority values', () => {
 test('formats timestamps in Brazilian Portuguese and handles missing values', () => {
     assert.equal(formatDate(null), '—');
     assert.match(formatDate('2026-11-09T12:00:00.000Z'), /09 de nov\./);
+    assert.match(formatDate('2026-11-13T15:00:00.000Z'), /11:00/);
+    assert.match(formatDate('2026-11-13T15:00:00.000Z'), /2026/);
 });

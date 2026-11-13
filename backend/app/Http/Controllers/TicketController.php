@@ -3,7 +3,7 @@ namespace App\Http\Controllers;
 
 use App\Enums\{TicketPriority, TicketStatus};
 use App\Models\{Building, Campus, Category, Location, SlaPolicy, Ticket, TicketHistory, Attachment};
-use App\Services\{SlaClock, TicketAccessScope, TicketWorkflow};
+use App\Services\{SlaClock, TicketAccessScope, TicketHistoryPresenter, TicketWorkflow};
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\DB;
@@ -14,7 +14,7 @@ class TicketController extends Controller
 {
     public function index(Request $request, TicketAccessScope $scope, SlaClock $clock)
     {
-        $this->authorize('viewAny', Ticket::class); $query = $scope->query($request->user())->with(['category','requester','assignedTechnician','team'])->withCount(['slaPauses as active_sla_pause_count'=>fn($q)=>$q->whereNull('ended_at')]);
+        $this->authorize('viewAny', Ticket::class); $query = $scope->query($request->user())->with(['category','requester','assignedTechnician','team','slaPolicy.calendar'])->withCount(['slaPauses as active_sla_pause_count'=>fn($q)=>$q->whereNull('ended_at')]);
         if ($q = $request->string('q')->trim()->toString()) $query->where(fn($b)=>$b->where('code','like',"%$q%")->orWhere('title','like',"%$q%"));
         foreach (['status','priority','category_id'] as $field) if ($request->filled($field)) $query->where($field,$request->input($field));
         if ($request->input('sla') === 'overdue') {
@@ -69,7 +69,10 @@ class TicketController extends Controller
         $this->authorize('view',$ticket);
         $ticket->load(['requester','assignedTechnician','team','category','campus','building','location','histories.actor','comments.user','attachments','rating','slaPolicy.calendar','slaPauses']);
         $comments=$ticket->comments->filter(fn($c)=>$this->userCanSeeComment(auth()->user(),$c));
-        return view('tickets.show',compact('ticket','comments'));
+        $historyEvents = $ticket->histories->filter(fn ($event) => auth()->user()->can('viewInternal', $ticket) || ! ($event->event_type === \App\Enums\TicketAuditEvent::CommentAdded && ($event->new_values['internal'] ?? false)));
+        $history = app(TicketHistoryPresenter::class)->present($historyEvents, $ticket);
+        $slaPresentation = app(\App\Services\TicketSlaPresenter::class)->present($ticket);
+        return view('tickets.show',compact('ticket','comments','history','slaPresentation'));
     }
     private function userCanSeeComment($user,$comment): bool { return !$comment->is_internal || $user->can('view',$comment); }
 }
