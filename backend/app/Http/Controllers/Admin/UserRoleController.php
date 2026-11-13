@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Admin;
 
 use App\Enums\UserType;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\CreateInstitutionalUserRequest;
 use App\Http\Requests\UpdateUserRoleRequest;
 use App\Models\User;
 use App\Models\Team;
@@ -17,6 +18,27 @@ class UserRoleController extends Controller
         $users = User::with('roles')->orderBy('name')->paginate(20);
         $roles = \Spatie\Permission\Models\Role::where('guard_name', 'web')->orderBy('name')->get();
         return view('admin.users.index', compact('users', 'roles'));
+    }
+
+    public function store(CreateInstitutionalUserRequest $request)
+    {
+        $data = $request->validated();
+        $role = UserType::from($data['role']);
+
+        DB::transaction(function () use ($data, $role): void {
+            $user = User::create([
+                'name' => $data['name'],
+                'email' => $data['email'],
+                'phone' => $data['phone'] ?? null,
+                'user_type' => $role,
+                'is_active' => true,
+                'password' => $data['password'],
+            ]);
+
+            $user->syncRoles([$role->value]);
+        });
+
+        return back()->with('status', 'Conta institucional criada.');
     }
 
     public function update(UpdateUserRoleRequest $request, User $user)

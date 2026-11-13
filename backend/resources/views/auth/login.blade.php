@@ -18,5 +18,4 @@
         <button class="button" type="submit">Entrar</button>
     </form>
 
-    <div class="links">Ainda não tem conta? <a href="{{ route('register') }}">Criar cadastro</a></div>
 @endsection

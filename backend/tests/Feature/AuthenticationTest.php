@@ -1,73 +1,41 @@
 <?php
 
-use App\Enums\UserType;
 use App\Models\User;
 use Illuminate\Auth\Notifications\ResetPassword;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Notification;
 
-it('registers a public student and derives its role from the allowlisted profile', function () {
-    $response = $this->post(route('register.store'), [
-        'name' => 'Ana Costa',
-        'email' => 'ANA.COSTA@example.test',
-        'user_type' => 'student',
+it('completely disables public web registration', function () {
+    $this->get('/register')->assertNotFound();
+    $this->post('/register', [
+        'name' => 'Tentativa pública',
+        'email' => 'public-signup@example.test',
+        'user_type' => 'administrator',
         'role' => 'administrator',
         'password' => 'CampusFix2026Strong',
         'password_confirmation' => 'CampusFix2026Strong',
-    ]);
+    ])->assertNotFound();
 
-    $response->assertRedirect(route('home'));
-    $user = User::where('email', 'ana.costa@example.test')->firstOrFail();
-
-    expect($user->user_type)->toBe(UserType::Student)
-        ->and($user->hasRole('student'))->toBeTrue()
-        ->and($user->hasRole('administrator'))->toBeFalse()
-        ->and(Hash::check('CampusFix2026Strong', $user->password))->toBeTrue();
-    $this->assertAuthenticatedAs($user);
+    expect(User::where('email', 'public-signup@example.test')->exists())->toBeFalse();
 });
 
-it('shows the public registration password length requirement in the form', function () {
-    $this->get(route('register'))
-        ->assertOk()
-        ->assertSee('name="password"', false)
-        ->assertSee('name="password" type="password" autocomplete="new-password" minlength="12" required', false)
-        ->assertSee('name="password_confirmation" type="password" autocomplete="new-password" minlength="12" required', false);
+it('does not show a public account creation link on login and redirects the public entry point to login', function () {
+    $this->get(route('login'))->assertOk()->assertDontSee('Criar cadastro');
+    $this->get('/')->assertRedirect(route('login'));
 });
 
-it('returns a Portuguese minimum length message for a short registration password', function () {
-    $this->from(route('register'))->post(route('register.store'), [
-        'name' => 'Pessoa de Teste',
-        'email' => 'password-short@example.test',
-        'user_type' => 'student',
-        'password' => 'Abcdef12345',
-        'password_confirmation' => 'Abcdef12345',
-    ])->assertSessionHasErrors(['password' => 'A senha deve ter pelo menos 12 caracteres.']);
+it('does not expose registration through alternate API endpoints', function () {
+    foreach (['/api/v1/auth/register', '/api/v1/register', '/api/register'] as $path) {
+        $this->getJson($path)->assertNotFound();
+        $this->postJson($path, [
+            'name' => 'Tentativa pública',
+            'email' => 'api-public-signup@example.test',
+            'role' => 'administrator',
+            'password' => 'CampusFix2026Strong',
+        ])->assertNotFound();
+    }
 
-    expect(User::where('email', 'password-short@example.test')->exists())->toBeFalse();
-});
-
-it('returns a Portuguese confirmation message when registration passwords do not match', function () {
-    $this->from(route('register'))->post(route('register.store'), [
-        'name' => 'Pessoa de Teste',
-        'email' => 'password-mismatch@example.test',
-        'user_type' => 'student',
-        'password' => 'CampusFix2026Strong',
-        'password_confirmation' => 'CampusFix2026Wrong',
-    ])->assertSessionHasErrors(['password' => 'A confirmação da senha não corresponde.']);
-
-    expect(User::where('email', 'password-mismatch@example.test')->exists())->toBeFalse();
-});
-
-it('rejects privileged profiles on public registration', function () {
-    $this->from(route('register'))->post(route('register.store'), [
-        'name' => 'Pessoa Admin',
-        'email' => 'privileged@example.test',
-        'user_type' => 'administrator',
-        'password' => 'CampusFix2026Strong',
-        'password_confirmation' => 'CampusFix2026Strong',
-    ])->assertSessionHasErrors('user_type');
-
-    expect(User::where('email', 'privileged@example.test')->exists())->toBeFalse();
+    expect(User::where('email', 'api-public-signup@example.test')->exists())->toBeFalse();
 });
 
 it('authenticates active users and rejects inactive accounts', function () {
@@ -116,11 +84,11 @@ it('sends a password reset link and accepts the issued token', function () {
     $this->post(route('password.store'), [
         'token' => $token,
         'email' => $user->email,
-        'password' => 'NewCampusFix2026',
-        'password_confirmation' => 'NewCampusFix2026',
+        'password' => 'NewCampusFix2026!',
+        'password_confirmation' => 'NewCampusFix2026!',
     ])->assertRedirect(route('login'));
 
-    expect(Hash::check('NewCampusFix2026', $user->fresh()->password))->toBeTrue()
+    expect(Hash::check('NewCampusFix2026!', $user->fresh()->password))->toBeTrue()
         ->and($user->tokens()->count())->toBe(0)
         ->and($otherUser->tokens()->count())->toBe(1);
 
@@ -140,8 +108,8 @@ it('preserves all account tokens when a password reset attempt is invalid', func
     $this->post(route('password.store'), [
         'token' => 'invalid-reset-token',
         'email' => $user->email,
-        'password' => 'NewCampusFix2026',
-        'password_confirmation' => 'NewCampusFix2026',
+        'password' => 'NewCampusFix2026!',
+        'password_confirmation' => 'NewCampusFix2026!',
     ])->assertSessionHasErrors('email');
 
     expect($user->tokens()->count())->toBe(1);

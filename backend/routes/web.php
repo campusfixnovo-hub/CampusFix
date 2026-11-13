@@ -8,7 +8,6 @@ use App\Http\Controllers\Admin\UserRoleController;
 use App\Http\Controllers\Auth\AuthenticatedSessionController;
 use App\Http\Controllers\Auth\NewPasswordController;
 use App\Http\Controllers\Auth\PasswordResetLinkController;
-use App\Http\Controllers\Auth\RegisteredUserController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\ReportController;
@@ -20,9 +19,6 @@ use Illuminate\Support\Facades\Route;
 Route::get('/', fn () => redirect()->route(auth()->check() ? 'home' : 'login'))->name('root');
 
 Route::middleware('guest')->group(function (): void {
-    Route::get('/register', [RegisteredUserController::class, 'create'])->name('register');
-    Route::post('/register', [RegisteredUserController::class, 'store'])->middleware('throttle:6,1')->name('register.store');
-
     Route::get('/login', [AuthenticatedSessionController::class, 'create'])->name('login');
     Route::post('/login', [AuthenticatedSessionController::class, 'store'])->middleware('throttle:6,1')->name('login.store');
 
@@ -60,6 +56,7 @@ Route::middleware(['auth', 'active'])->group(function (): void {
 
     Route::middleware('role:administrator')->prefix('admin')->name('admin.')->group(function (): void {
         Route::get('/users', [UserRoleController::class, 'index'])->name('users.index');
+        Route::post('/users', [UserRoleController::class, 'store'])->middleware('can:create,App\\Models\\User')->name('users.store');
         Route::patch('/users/{user}/active', [UserRoleController::class, 'toggle'])->middleware('can:toggleActive,user')->name('users.active');
         Route::patch('/users/{user}/role', [UserRoleController::class, 'update'])->middleware('can:assignRole,user')->name('users.role');
         Route::resource('teams', TeamController::class)->except(['show']);

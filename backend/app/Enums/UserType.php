@@ -23,13 +23,4 @@ enum UserType: string
         };
     }
 
-    public static function publicRegistrationValues(): array
-    {
-        return array_map(static fn (self $type): string => $type->value, self::publicRegistrationCases());
-    }
-
-    public static function publicRegistrationCases(): array
-    {
-        return [self::Student, self::Professor, self::Staff];
-    }
 }
