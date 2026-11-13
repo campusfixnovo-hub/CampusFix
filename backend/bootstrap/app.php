@@ -21,7 +21,8 @@ return Application::configure(basePath: dirname(__DIR__))
     )
     ->withCommands([CreateInitialAdministrator::class, MonitorTicketSla::class])
     ->withMiddleware(function (Middleware $middleware): void {
-        $middleware->alias([
+    $middleware->trustProxies(at: '*');   
+    $middleware->alias([
             'active' => EnsureUserIsActive::class,
             'api.active' => EnsureApiUserIsActive::class,
             'role' => RoleMiddleware::class,
