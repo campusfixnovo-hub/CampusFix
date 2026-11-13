@@ -15,6 +15,23 @@ it('shows only tickets within a requester scope and renders the dashboard', func
     $this->actingAs($requester)->get(route('dashboard'))->assertOk()->assertSee('Solicitações recentes');
 });
 
+it('renders the dashboard pending label, unchanged count, and date in Brazilian Portuguese', function () {
+    $requester = User::factory()->type(UserType::Student)->create();
+    $requester->assignRole('student');
+    $this->travelTo(\Carbon\CarbonImmutable::parse('2026-11-13 12:00:00', 'America/Manaus'));
+
+    Ticket::factory()->create(['requester_id' => $requester->id, 'status' => 'open']);
+    Ticket::factory()->create(['requester_id' => $requester->id, 'status' => 'in_progress']);
+    Ticket::factory()->create(['requester_id' => $requester->id, 'status' => 'resolved']);
+
+    $response = $this->actingAs($requester)->get(route('dashboard'))->assertOk()
+        ->assertSee('Pendentes')
+        ->assertSee('sexta-feira, 13 de novembro de 2026')
+        ->assertDontSee('Em andamento');
+
+    expect($response->viewData('stats')['open'])->toBe(2);
+});
+
 it('creates a ticket through the shared workflow and writes the initial audit event', function () {
     $requester=User::factory()->type(UserType::Student)->create(); $requester->assignRole('student');
     $category=Category::query()->where('is_active',true)->firstOrFail();

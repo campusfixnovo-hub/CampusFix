@@ -58,6 +58,35 @@ it('calculates report totals using date and priority filters and omits unresolve
         ->and($resolved->resolved_at)->not->toBeNull();
 });
 
+it('uses singular and plural forms consistently in report duration and category summaries', function () {
+    $admin = reportingAdministrator();
+    $campus = Campus::factory()->create();
+    $category = Category::factory()->create();
+    $date = now()->toDateString();
+    $makeResolvedTicket = fn () => Ticket::factory()->create([
+        'campus_id' => $campus->id,
+        'category_id' => $category->id,
+        'status' => TicketStatus::Resolved->value,
+        'created_at' => now()->subHours(2),
+        'first_response_at' => now()->subHour(),
+        'resolved_at' => now(),
+        'due_at' => null,
+    ]);
+
+    $makeResolvedTicket();
+    $filters = ['date_from' => $date, 'date_to' => $date, 'campus_id' => $campus->id, 'category_id' => $category->id];
+    $this->actingAs($admin)->get(route('reports.index', $filters))->assertOk()
+        ->assertSee('1 solicitação resolvida')
+        ->assertSee('1 solicitação com primeira resposta registrada')
+        ->assertSee('1 chamado · 0 chamados atrasados em 0 casos mensuráveis de SLA · 1 chamado resolvido');
+
+    $makeResolvedTicket();
+    $this->actingAs($admin)->get(route('reports.index', $filters))->assertOk()
+        ->assertSee('2 solicitações resolvidas')
+        ->assertSee('2 solicitações com primeira resposta registrada')
+        ->assertSee('2 chamados · 0 chamados atrasados em 0 casos mensuráveis de SLA · 2 chamados resolvidos');
+});
+
 it('limits manager reports and exports to the managed campus scope', function () {
     $manager = User::factory()->type(UserType::Manager)->create();
     $manager->assignRole('manager');
