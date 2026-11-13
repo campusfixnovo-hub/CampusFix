@@ -1,0 +1,56 @@
+# Local environment files and credentials (keep only sanitized templates).
+**/.env
+**/.env.*
+!**/.env.example
+!**/.env.*.example
+**/auth.json
+**/key.properties
+**/*.jks
+**/*.keystore
+**/*.p12
+**/*.pfx
+**/*.pem
+**/google-services.json
+**/*service-account*.json
+
+# Local databases, exports, dumps, archives, and backups.
+**/*.sqlite*
+**/*.db
+**/*.sql
+**/*.dump
+**/*.bak
+**/*.backup
+**/*.sql.gz
+**/*.zip
+**/*.7z
+**/*.tar
+**/*.tar.gz
+**/*.tgz
+**/exports/**
+
+# User uploads and private operational data.
+/backend/storage/app/private/**
+!/backend/storage/app/private/.gitignore
+/backend/storage/app/public/**
+!/backend/storage/app/public/.gitignore
+/backend/storage/logs/**
+!/backend/storage/logs/.gitignore
+**/uploads/**
+
+# Dependencies, generated builds, logs, and local IDE/SDK state.
+**/vendor/**
+**/node_modules/**
+**/.gradle/**
+**/build/**
+**/dist/**
+**/*.apk
+**/*.aab
+**/*.aar
+**/*.ap_
+**/*.dex
+**/*.class
+**/*.hprof
+**/*.log
+**/local.properties
+**/captures/**
+/.git-backup/

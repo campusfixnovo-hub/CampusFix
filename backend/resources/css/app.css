@@ -1,0 +1,27 @@
+@import 'tailwindcss';
+
+@source '../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php';
+@source '../../storage/framework/views/*.php';
+@source '../views/**/*.blade.php';
+@source '../js/**/*.js';
+
+@theme {
+    --font-sans: 'Instrument Sans', 'Inter', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji';
+    --color-campus-50: #eef9f7;
+    --color-campus-100: #d8f0eb;
+    --color-campus-200: #b4e2d9;
+    --color-campus-300: #82cdbf;
+    --color-campus-400: #4eb3a3;
+    --color-campus-500: #299889;
+    --color-campus-600: #197c70;
+    --color-campus-700: #17645c;
+    --color-campus-800: #164f4a;
+    --color-campus-900: #143f3c;
+    --color-campus-950: #092725;
+}
+
+@layer base {
+    :root { color-scheme: light; }
+    body { @apply bg-slate-50 text-slate-800 antialiased; }
+    button, input, select, textarea { font: inherit; }
+}

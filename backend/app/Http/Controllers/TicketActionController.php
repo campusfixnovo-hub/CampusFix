@@ -1,0 +1,20 @@
+<?php
+namespace App\Http\Controllers;
+
+use App\Enums\{TicketAuditEvent,TicketPriority,TicketStatus};
+use App\Models\{Attachment,Ticket,TicketHistory,Rating,Team,User};
+use App\Services\TicketWorkflow;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\Rule;
+
+class TicketActionController extends Controller
+{
+    public function status(Request $request,Ticket $ticket,TicketWorkflow $workflow){$data=$request->validate(['status'=>['required',Rule::enum(TicketStatus::class)]]);$next=TicketStatus::from($data['status']);$this->authorize($next===TicketStatus::Cancelled?'cancel':'updateStatus',$ticket);$workflow->changeStatus($ticket,$request->user(),$next);return back()->with('status',$next===TicketStatus::Cancelled?'Solicitação cancelada.':'Status atualizado.');}
+    public function priority(Request $request,Ticket $ticket,TicketWorkflow $workflow){$this->authorize('assign',$ticket);$data=$request->validate(['priority'=>['required',Rule::enum(TicketPriority::class)]]);$workflow->changePriority($ticket,$request->user(),TicketPriority::from($data['priority']));return back()->with('status','Prioridade e prazo SLA reavaliados.');}
+    public function location(Request $request,Ticket $ticket,TicketWorkflow $workflow){$this->authorize('updateLocation',$ticket);$data=$request->validate(['campus_id'=>['required',Rule::exists('campuses','id')->where('is_active',true)],'building_id'=>['nullable',Rule::exists('buildings','id')->where('is_active',true)],'location_id'=>['nullable',Rule::exists('locations','id')->where('is_active',true)],'location_details'=>['nullable','string','max:2000']]);$workflow->changeLocation($ticket,$request->user(),(int)$data['campus_id'],isset($data['building_id'])?(int)$data['building_id']:null,isset($data['location_id'])?(int)$data['location_id']:null,$data['location_details']??null);return back()->with('status','Localização atualizada e registrada no histórico.');}
+    public function assignment(Request $request,Ticket $ticket,TicketWorkflow $workflow){$this->authorize('assign',$ticket);$data=$request->validate(['team_id'=>['nullable','exists:teams,id'],'assigned_user_id'=>['nullable','exists:users,id']]);$workflow->assign($ticket,$request->user(),$data['team_id']??null,$data['assigned_user_id']??null);return back()->with('status','Atribuição atualizada.');}
+    public function comment(Request $request,Ticket $ticket,TicketWorkflow $workflow){$this->authorize('view',$ticket);$data=$request->validate(['body'=>['required','string','max:10000'],'is_internal'=>['nullable','boolean']]);$internal=(bool)($data['is_internal']??false);if($internal)$this->authorize('viewInternal',$ticket);$workflow->comment($ticket,$request->user(),$data['body'],$internal);return back()->with('status','Comentário adicionado.');}
+    public function rating(Request $request,Ticket $ticket){$this->authorize('view',$ticket);abort_unless($ticket->requester_id===$request->user()->id && $ticket->status===TicketStatus::Resolved,403);$data=$request->validate(['score'=>['required','integer','between:1,5'],'comment'=>['nullable','string','max:2000']]);abort_if($ticket->rating()->exists(),409,'Esta solicitação já foi avaliada.');DB::transaction(function()use($ticket,$request,$data){$ticket->rating()->create($data+['user_id'=>$request->user()->id]);TicketHistory::create(['ticket_id'=>$ticket->id,'actor_id'=>$request->user()->id,'event_type'=>TicketAuditEvent::Rated,'source'=>'web','metadata'=>['score'=>$data['score'],'comment'=>$data['comment']??null],'created_at'=>now()]);});return back()->with('status','Avaliação registrada.');}
+    public function attachment(Request $request,Attachment $attachment){$this->authorize('view',$attachment->ticket);if($attachment->comment && $attachment->comment->is_internal)$this->authorize('view',$attachment->comment);abort_unless($attachment->disk==='local' && \Storage::disk('local')->exists($attachment->path),404);return \Storage::disk('local')->download($attachment->path,$attachment->original_name,['Content-Type'=>$attachment->mime_type]);}
+}

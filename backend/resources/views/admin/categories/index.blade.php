@@ -1,0 +1,1 @@
+@extends('layouts.app') @section('title','Categorias') @section('page-title','Categorias') @section('eyebrow','Administração') @section('content')@include('admin._list',['title'=>'Categorias','route'=>'admin.categories','items'=>$categories])@endsection

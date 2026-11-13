@@ -1,0 +1,8 @@
+{
+  "appId": "br.edu.campusfix.mobile",
+  "appName": "CampusFix",
+  "webDir": "dist",
+  "server": {
+    "androidScheme": "https"
+  }
+}
