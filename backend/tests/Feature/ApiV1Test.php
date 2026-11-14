@@ -99,6 +99,26 @@ it('limits ticket data to the requester and allows creation through the shared w
     expect($ownTicket->fresh()->histories()->where('event_type', 'details_updated')->where('source', 'api')->exists())->toBeTrue();
 });
 
+it('returns completed dashboard totals for a requester scope while preserving resolved and closed counts', function () {
+    $requester = User::factory()->create();
+    $requester->assignRole('student');
+    Ticket::factory()->create(['requester_id' => $requester->id, 'status' => TicketStatus::Open]);
+    Ticket::factory()->create(['requester_id' => $requester->id, 'status' => TicketStatus::Resolved]);
+    Ticket::factory()->create(['requester_id' => $requester->id, 'status' => TicketStatus::Closed]);
+    $other = User::factory()->create();
+    $other->assignRole('student');
+    $outsideTicket = Ticket::factory()->create(['requester_id' => $other->id, 'status' => TicketStatus::Closed]);
+    $token = $requester->createToken('dashboard-stats-test')->plainTextToken;
+
+    $this->withToken($token)->getJson('/api/v1/dashboard')->assertOk()
+        ->assertJsonPath('data.stats.total', 3)
+        ->assertJsonPath('data.stats.open', 1)
+        ->assertJsonPath('data.stats.resolved', 1)
+        ->assertJsonPath('data.stats.closed', 1)
+        ->assertJsonPath('data.stats.completed', 2)
+        ->assertJsonMissing(['id' => $outsideTicket->id]);
+});
+
 it('protects internal comments and supports private attachments and rating rules', function () {
     Storage::fake('local');
     $requester = User::factory()->create();

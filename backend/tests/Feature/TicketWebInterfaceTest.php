@@ -23,13 +23,20 @@ it('renders the dashboard pending label, unchanged count, and date in Brazilian 
     Ticket::factory()->create(['requester_id' => $requester->id, 'status' => 'open']);
     Ticket::factory()->create(['requester_id' => $requester->id, 'status' => 'in_progress']);
     Ticket::factory()->create(['requester_id' => $requester->id, 'status' => 'resolved']);
+    Ticket::factory()->create(['requester_id' => $requester->id, 'status' => 'closed']);
+    $other = User::factory()->type(UserType::Student)->create();
+    $other->assignRole('student');
+    Ticket::factory()->create(['requester_id' => $other->id, 'status' => 'closed']);
 
     $response = $this->actingAs($requester)->get(route('dashboard'))->assertOk()
         ->assertSee('Pendentes')
+        ->assertSee('Concluídas')
         ->assertSee('sexta-feira, 13 de novembro de 2026')
         ->assertDontSee('Em andamento');
 
-    expect($response->viewData('stats')['open'])->toBe(2);
+    expect($response->viewData('stats')['total'])->toBe(4)
+        ->and($response->viewData('stats')['open'])->toBe(2)
+        ->and($response->viewData('stats')['completed'])->toBe(2);
 });
 
 it('creates a ticket through the shared workflow and writes the initial audit event', function () {

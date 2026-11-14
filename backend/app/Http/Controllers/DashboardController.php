@@ -12,7 +12,8 @@ class DashboardController extends Controller
     {
         $user = $request->user(); $tickets = $scope->query($user);
         $stats = ['total'=>(clone $tickets)->count(),'open'=>(clone $tickets)->whereNotIn('status',['resolved','closed','cancelled'])->count(),
-            'resolved'=>(clone $tickets)->where('status','resolved')->count(),'overdue'=>(clone $tickets)->whereNotNull('due_at')->where('due_at','<',now())->whereNotIn('status',['resolved','closed','cancelled','awaiting_requester'])->count()];
+            'resolved'=>(clone $tickets)->where('status','resolved')->count(),'completed'=>(clone $tickets)->whereIn('status',['resolved','closed'])->count(),
+            'overdue'=>(clone $tickets)->whereNotNull('due_at')->where('due_at','<',now())->whereNotIn('status',['resolved','closed','cancelled','awaiting_requester'])->count()];
         $recent = $scope->query($user)->with(['category','requester','assignedTechnician','team','slaPolicy.calendar'])->withCount(['slaPauses as active_sla_pause_count'=>fn($q)=>$q->whereNull('ended_at')])->latest()->limit(8)->get();
         $updates = $user->hasAnyRole(['student','professor','staff']) ? $user->requestedTickets()->with('category')->latest()->limit(5)->get() : collect();
         $managedTeams = $user->hasRole('manager') ? $user->teams()->where('team_members.member_role','manager')->with('campus')->withCount(['technicians'=>fn($q)=>$q->where('users.is_active',true)])->get() : collect();

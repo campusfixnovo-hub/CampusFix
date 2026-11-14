@@ -18,12 +18,15 @@ class DashboardController extends Controller
     {
         $query = $scope->query($request->user());
         $active = ['open', 'in_triage', 'awaiting_service', 'in_progress', 'awaiting_material', 'awaiting_requester', 'reopened'];
+        $resolvedCount = (clone $query)->where('status', TicketStatus::Resolved)->count();
+        $closedCount = (clone $query)->where('status', TicketStatus::Closed)->count();
         $stats = [
             'total' => (clone $query)->count(),
             'open' => (clone $query)->whereIn('status', ['open', 'in_triage'])->count(),
             'in_progress' => (clone $query)->whereIn('status', ['awaiting_service', 'in_progress', 'awaiting_material', 'awaiting_requester', 'reopened'])->count(),
-            'resolved' => (clone $query)->where('status', TicketStatus::Resolved)->count(),
-            'closed' => (clone $query)->where('status', TicketStatus::Closed)->count(),
+            'resolved' => $resolvedCount,
+            'closed' => $closedCount,
+            'completed' => $resolvedCount + $closedCount,
             'cancelled' => (clone $query)->where('status', TicketStatus::Cancelled)->count(),
             'unassigned' => (clone $query)->whereIn('status', $active)->whereNull('assigned_user_id')->count(),
             'paused' => (clone $query)->whereHas('slaPauses', fn ($pause) => $pause->whereNull('ended_at'))->count(),
